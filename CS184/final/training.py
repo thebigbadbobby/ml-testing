@@ -1,18 +1,24 @@
 # These are slight redefinitions of torch.transformation classes
 # The difference is that they handle the target and the mask
 # Copied from Abishek, added new ones
-
+import matplotlib.pyplot as plt
 import collections
-
+from scipy import ndimage
 import pandas as pd
 from PIL import Image
-
+import math
 from torchvision.transforms import functional as F
 from torch.utils.data import Dataset, DataLoader
 
 from comfig import *
 
+def rotate(origin, point, angle):
+    ox, oy = origin
+    px, py = point
 
+    qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
+    qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
+    return qx, qy
 class Compose:
     def __init__(self, transforms):
         self.transforms = transforms
@@ -37,6 +43,60 @@ class VerticalFlip:
             target["masks"] = target["masks"].flip(-2)
         return image, target
 
+class DegreeFlip:
+    def __init__(self, degree):
+        self.degree=degree
+    def __call__(self, image, target):
+        if random.random() < self.degree:
+            height, width = image.shape[-2:]
+            image = image.swapaxes(0,1)
+            image = image.swapaxes(1,2)
+            # print(type(image))
+            # print(type(target['masks']))
+            # plt.imshow(image)
+            # plt.title("Image")
+            # plt.show()
+            plt.imshow(image)
+            plt.title("Orig Image")
+            plt.show()
+            image = torch.from_numpy(ndimage.rotate(image, self.degree, reshape=False))
+
+            bbox = target["boxes"]
+            bbox[:, [0, 2]] = width - bbox[:, [2, 0]]
+            target["boxes"] = bbox
+            # print(np.shape(bbox))
+            # print("a")
+            # print(np.shape(target["masks"]))
+            # print(np.shape(target["boxes"]))
+            target['boxes'] = [rotate((0,0), (box[0],box[1]), math.radians(self.degree))+rotate((352,260), (box[2],box[3]), math.radians(self.degree)) for box in target['boxes']]
+            target['masks'] = F.rotate(target["masks"], self.degree)
+            # print(target["masks"])
+            # print(target['boxes'])
+            # plt.imshow(target['boxes'])
+            # plt.title("Normal")
+            # # print("aa")
+            # plt.show()
+            masks = np.zeros((HEIGHT, WIDTH))
+            for mask in target['masks']:
+                masks = np.logical_or(masks, mask)
+            # print(image)
+            for i in range(0,len(image)):
+                for j in range(0,len(image[0])):
+                    # print(image[i][j])
+                    if sum(image[i,j])==0:
+                        # print("ekans")
+                        image[i,j]=torch.tensor([.5,.5,.5])
+            print(masks)
+            # plt.imshow(masks)
+            # plt.title("Pre-treatment")
+            # plt.show()
+            plt.imshow(image)
+            plt.title("Rot Image")
+            plt.show()
+            image = image.swapaxes(1,2)
+            image = image.swapaxes(0,1)
+
+        return image, target
 
 class HorizontalFlip:
     def __init__(self, prob):
@@ -69,12 +129,21 @@ def get_transform(train):
     transforms = [ToTensor()]
     if NORMALIZE:
         transforms.append(Normalize())
-
+    print("ekans")
     # Data augmentation for train
     if train:
         transforms.append(HorizontalFlip(0.5))
         transforms.append(VerticalFlip(0.5))
-
+        # transforms.append(DegreeFlip(45))
+    return Compose(transforms)
+def try_degree_flip(train):
+    transforms = [ToTensor()]
+    if NORMALIZE:
+        transforms.append(Normalize())
+    
+    # Data augmentation for train
+    if train: 
+        transforms.append(DegreeFlip(45))
     return Compose(transforms)
 
 def rle_decode(mask_rle, shape, color=1):
@@ -182,7 +251,11 @@ class CellDataset(Dataset):
 def f(x):
     return tuple(zip(*x))
 
-df_train = pd.read_csv(TRAIN_CSV, nrows=5000 if TEST else None)
-ds_train = CellDataset(TRAIN_PATH, df_train, resize=False, transforms=get_transform(train=True))
+df_train = pd.read_csv(TRAIN_CSV, nrows=50 if TEST else None)
+ds_train = CellDataset(TRAIN_PATH, df_train, resize=False, transforms=try_degree_flip(train=True))
 dl_train = DataLoader(ds_train, batch_size=BATCH_SIZE, shuffle=True,
                       num_workers=2, collate_fn= f)
+# df_train = pd.read_csv(TRAIN_CSV, nrows=5000 if TEST else None)
+# ds_train = CellDataset(TRAIN_PATH, df_train, resize=False, transforms=get_transform(train=True))
+# dl_train = DataLoader(ds_train, batch_size=BATCH_SIZE, shuffle=True,
+#                       num_workers=2, collate_fn= f)
