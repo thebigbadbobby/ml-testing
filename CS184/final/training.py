@@ -51,8 +51,14 @@ class DegreeFlip:
             height, width = image.shape[-2:]
             image = image.swapaxes(0,1)
             image = image.swapaxes(1,2)
-            print(type(image))
-            print(type(target['masks']))
+            # print(type(image))
+            # print(type(target['masks']))
+            # plt.imshow(image)
+            # plt.title("Image")
+            # plt.show()
+            plt.imshow(image)
+            plt.title("Orig Image")
+            plt.show()
             image = torch.from_numpy(ndimage.rotate(image, self.degree, reshape=False))
 
             bbox = target["boxes"]
@@ -62,22 +68,30 @@ class DegreeFlip:
             # print("a")
             # print(np.shape(target["masks"]))
             # print(np.shape(target["boxes"]))
-            target['boxes'] = [rotate((0,0), (box[0],box[1]), math.radians(self.degree))+rotate((0,0), (box[2],box[3]), math.radians(self.degree)) for box in target['boxes']]
+            target['boxes'] = [rotate((0,0), (box[0],box[1]), math.radians(self.degree))+rotate((352,260), (box[2],box[3]), math.radians(self.degree)) for box in target['boxes']]
             target['masks'] = F.rotate(target["masks"], self.degree)
-            print(target["masks"])
-            print(target['boxes'])
+            # print(target["masks"])
+            # print(target['boxes'])
             # plt.imshow(target['boxes'])
             # plt.title("Normal")
             # # print("aa")
             # plt.show()
             masks = np.zeros((HEIGHT, WIDTH))
-            for mask in target['masks'][0:2]:
+            for mask in target['masks']:
                 masks = np.logical_or(masks, mask)
-            plt.imshow(masks)
-            plt.title("Pre-treatment")
-            plt.show()
+            # print(image)
+            for i in range(0,len(image)):
+                for j in range(0,len(image[0])):
+                    # print(image[i][j])
+                    if sum(image[i,j])==0:
+                        # print("ekans")
+                        image[i,j]=torch.tensor([.5,.5,.5])
+            print(masks)
+            # plt.imshow(masks)
+            # plt.title("Pre-treatment")
+            # plt.show()
             plt.imshow(image)
-            plt.title("Image")
+            plt.title("Rot Image")
             plt.show()
             image = image.swapaxes(1,2)
             image = image.swapaxes(0,1)
