@@ -7,3 +7,5 @@ Variational Auto Encoder notebook: this was a half baked idea that went farther 
 
 conclusion: it's hard to make a better ml algorithm than these kaggle masters: that said, there would be a shot at it if I found a way to reliably rotate the masks.
 The reason I think this is because the rotated images look really seamless. I can barely even tell they have the rotation gaps in the corners.
+
+This repo is separate because I was using it in a previous version to clone the training set into AWS to run the epochs faster.
